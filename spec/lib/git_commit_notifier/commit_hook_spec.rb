@@ -1,3 +1,5 @@
+# -*- coding: utf-8; mode: ruby; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- vim:fenc=utf-8:filetype=ruby:et:sw=2:ts=2:sts=2
+
 require File.expand_path('../../../spec_helper', __FILE__)
 require 'git_commit_notifier'
 
@@ -70,12 +72,15 @@ describe GitCommitNotifier::CommitHook do
    end
 
   def expect_repository_access
-    mock(GitCommitNotifier::Git).log(REVISIONS.first, REVISIONS.last) { IO.read(FIXTURES_PATH + 'git_log') }
+    mock(GitCommitNotifier::Git).rev_type(REVISIONS.first) { "commit" }
+    mock(GitCommitNotifier::Git).rev_type(REVISIONS.last) { "commit" }
+    mock(GitCommitNotifier::Git).new_commits(anything, anything, anything, anything) { REVISIONS }
     mock(GitCommitNotifier::Git).mailing_list_address { 'recipient@test.com' }
     mock(GitCommitNotifier::Git).repo_name { 'testproject' }
     mock(GitCommitNotifier::Git).changed_files('7e4f6b4', '4f13525') { [] }
     REVISIONS.each do |rev|
       mock(GitCommitNotifier::Git).show(rev, :ignore_whitespaces => true) { IO.read(FIXTURES_PATH + "git_show_#{rev}") }
+      dont_allow(GitCommitNotifier::Git).describe(rev) { IO.read(FIXTURES_PATH + "git_describe_#{rev}") }
     end
   end
 
@@ -104,10 +109,10 @@ describe GitCommitNotifier::CommitHook do
   end
 
   describe :run do
-    it "should report error when no recipients specified" do
+    it "should report informational message when no recipients specified" do
       mock(File).exists?(:noconfig) { false }
       mock(GitCommitNotifier::Git).mailing_list_address { nil }
-      mock(GitCommitNotifier::CommitHook).show_error(/recipient/)
+      mock(GitCommitNotifier::CommitHook).info(/recipient/)
       GitCommitNotifier::CommitHook.run(:noconfig, :rev1, :rev2, 'master')
     end
   end
@@ -129,7 +134,17 @@ describe GitCommitNotifier::CommitHook do
       mock(GitCommitNotifier::CommitHook).config { { 'include_branches' => 'test, me, yourself'  } }
       GitCommitNotifier::CommitHook.include_branches.should == %w(test me yourself)
     end
+  end
 
+  describe :get_subject do
+    it "should run lambda if specified in mapping" do
+      mock(GitCommitNotifier::Git).describe("commit_id") { "yo" }
+      GitCommitNotifier::CommitHook.get_subject(
+        { :commit => "commit_id" },
+        "${description}",
+        { :description => lambda { |commit_info| GitCommitNotifier::Git.describe(commit_info[:commit]) } }
+      ).should == "yo"
+    end
   end
 
 end
