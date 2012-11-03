@@ -1,3 +1,5 @@
+# -*- coding: utf-8; mode: ruby; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- vim:fenc=utf-8:filetype=ruby:et:sw=2:ts=2:sts=2
+
 require File.expand_path('../../../spec_helper', __FILE__)
 
 require 'git_commit_notifier'
@@ -27,6 +29,10 @@ describe GitCommitNotifier::Emailer do
   end
 
   describe :stylesheet_string do
+    before(:each) do
+      GitCommitNotifier::Emailer.reset_stylesheet
+    end
+
     it "should return default stylesheet if custom is not provided" do
       emailer = GitCommitNotifier::Emailer.new({})
       mock(IO).read(GitCommitNotifier::Emailer::DEFAULT_STYLESHEET_PATH) { 'ok' }
